@@ -122,7 +122,12 @@ ID2D1Bitmap* bmpShipD[2] = { nullptr };
 
 ///////////////////////////////////////////////
 
+prime_ptr neb1 = nullptr;
+prime_ptr neb2 = nullptr;
+
 std::vector<obj_ptr> vStars;
+
+
 
 ///////////////////////////////////////////////
 template<typename COM> void GarbageCollector(COM** object)
@@ -402,8 +407,13 @@ void InitGame()
     seconds = 0;
     minutes = 0;
 
-    vStars.clear();
+    if (neb1)neb1->Release();
+    if (neb2)neb2->Release();
 
+    neb1 = iPrimeFactory(types::nebula1, (float)(rand() % 600), 80.0f);
+    neb2 = iPrimeFactory(types::nebula2, (float)(rand() % 600), 450.0f);
+    
+    vStars.clear();
 
     for (float x_counter = frame_min_width; x_counter <= frame_max_width; x_counter += 30.0f + rand() % 50)
     {
@@ -797,11 +807,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         if (!vStars.empty())
         {
             for (int i = 0; i < vStars.size(); i++)
-                if ((vStars[i]->ex >= 0 || vStars[i]->x <= cl_width) && vStars[i]->ey > 50.0f)
+                if ((vStars[i]->ex >= 0 || vStars[i]->x <= cl_width) && vStars[i]->y > 50.0f)
                     Draw->FillEllipse(D2D1::Ellipse(D2D1::Point2F(vStars[i]->ex - 25.0f, vStars[i]->ey - 25.0f), 
                         (vStars[i]->ex - vStars[i]->x) / 4, 
                         (vStars[i]->ey - vStars[i]->y) / 4), StarBrush);
         }
+
+        if (neb1)Draw->DrawBitmap(bmpNebula1, D2D1::RectF(neb1->x, neb1->y, neb1->ex, neb1->ey));
+        if (neb2)Draw->DrawBitmap(bmpNebula2, D2D1::RectF(neb2->x, neb2->y, neb2->ex, neb2->ey));
+        ////////////////////////////////////////////////////
+
 
 
         Draw->EndDraw();
