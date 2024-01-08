@@ -124,6 +124,7 @@ ID2D1Bitmap* bmpShipD[2] = { nullptr };
 
 prime_ptr neb1 = nullptr;
 prime_ptr neb2 = nullptr;
+obj_ptr Ship = nullptr;
 
 std::vector<obj_ptr> vStars;
 
@@ -409,23 +410,28 @@ void InitGame()
 
     if (neb1)neb1->Release();
     if (neb2)neb2->Release();
+    if (Ship)Ship->Release();
 
     neb1 = iPrimeFactory(types::nebula1, (float)(rand() % 600), 80.0f);
     neb2 = iPrimeFactory(types::nebula2, (float)(rand() % 600), 450.0f);
     
     vStars.clear();
 
-    for (float x_counter = frame_min_width; x_counter <= frame_max_width; x_counter += 30.0f + rand() % 50)
+    for (float x_counter = frame_min_width; x_counter < frame_max_width; x_counter += (30.0f + rand() % 60))
     {
-        for (float y_counter = frame_min_height; y_counter <= 650.0f; y_counter += 30.0f + rand() % 50)
+        for (float y_counter = frame_min_height; y_counter < frame_max_height; y_counter += (30.0f + rand() % 70))
         {
-            if (rand() % 2 == 0)
+            int acase = rand() % 3;
+            
+            if (acase == 0)
                 vStars.push_back(iObjectFactory(types::small_star, x_counter, y_counter));
-            else
+            else if (acase == 1)
                 vStars.push_back(iObjectFactory(types::big_star, x_counter, y_counter));
-
         }
     }
+
+    Ship = iObjectFactory(types::ship, cl_width / 2, cl_height - 100.0f);
+
 }
 
 void GameOver()
@@ -764,9 +770,50 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 continue;
             }
         }
+        //////////////////////////////////////////
 
+        if (Ship)
+        {
+            switch (Ship->dir)
+            {
+            case dirs::up:
+                objects_dir = dirs::down;
+                break;
 
+            case dirs::down:
+                objects_dir = dirs::up;
+                break;
 
+            case dirs::left:
+                objects_dir = dirs::right;
+                break;
+
+            case dirs::up_left:
+                objects_dir = dirs::down_right;
+                break;
+
+            case dirs::up_right:
+                objects_dir = dirs::down_left;
+                break;
+
+            case dirs::down_left:
+                objects_dir = dirs::up_right;
+                break;
+
+            case dirs::down_right:
+                objects_dir = dirs::up_left;
+                break;
+            }
+        }
+
+        if (!vStars.empty())
+        {
+            for (int i = 0; i < vStars.size(); i++)
+            {
+                vStars[i]->dir = objects_dir;
+                vStars[i]->Move();
+            }
+        }
 
 
 
@@ -804,17 +851,30 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     ButBrush);
         }
 
+        if (neb1)Draw->DrawBitmap(bmpNebula1, D2D1::RectF(neb1->x, neb1->y, neb1->ex, neb1->ey));
+        if (neb2)Draw->DrawBitmap(bmpNebula2, D2D1::RectF(neb2->x, neb2->y, neb2->ex, neb2->ey));
+        
+
         if (!vStars.empty())
         {
             for (int i = 0; i < vStars.size(); i++)
-                if ((vStars[i]->ex >= 0 || vStars[i]->x <= cl_width) && vStars[i]->y > 50.0f)
+                if (vStars[i]->x >= 0 && vStars[i]->x <= cl_width && vStars[i]->y > 75.0f && vStars[i]->y <= cl_height)
                     Draw->FillEllipse(D2D1::Ellipse(D2D1::Point2F(vStars[i]->ex - 25.0f, vStars[i]->ey - 25.0f), 
-                        (vStars[i]->ex - vStars[i]->x) / 4, 
-                        (vStars[i]->ey - vStars[i]->y) / 4), StarBrush);
+                        vStars[i]->ex - vStars[i]->x, 
+                        vStars[i]->ey - vStars[i]->y), StarBrush);
         }
 
-        if (neb1)Draw->DrawBitmap(bmpNebula1, D2D1::RectF(neb1->x, neb1->y, neb1->ex, neb1->ey));
-        if (neb2)Draw->DrawBitmap(bmpNebula2, D2D1::RectF(neb2->x, neb2->y, neb2->ex, neb2->ey));
+        if (Ship)
+        {
+            if (Ship->dir == dirs::up || Ship->dir == dirs::stop)
+                Draw->DrawBitmap(bmpShipU[Ship->GetFrame()], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
+            else if (Ship->dir == dirs::down)
+                Draw->DrawBitmap(bmpShipD[Ship->GetFrame()], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
+            else if (Ship->dir == dirs::up_right || Ship->dir == dirs::down_right)
+                Draw->DrawBitmap(bmpShipR[Ship->GetFrame()], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
+            else if (Ship->dir == dirs::down_left || Ship->dir == dirs::up_left)
+                Draw->DrawBitmap(bmpShipL[Ship->GetFrame()], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
+        }
         ////////////////////////////////////////////////////
 
 
