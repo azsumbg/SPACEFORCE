@@ -98,6 +98,7 @@ ID2D1SolidColorBrush* ButInactiveBrush = nullptr;
 
 ID2D1SolidColorBrush* FieldBrush = nullptr;
 ID2D1SolidColorBrush* StarBrush = nullptr;
+ID2D1SolidColorBrush* BigStarBrush = nullptr;
 ID2D1SolidColorBrush* TextBrush = nullptr;
 
 ID2D1Bitmap* bmpBigAsteroid = nullptr;
@@ -155,6 +156,7 @@ void SafeRelease()
 
     if (FieldBrush)GarbageCollector(&FieldBrush);
     if (StarBrush)GarbageCollector(&StarBrush);
+    if (BigStarBrush)GarbageCollector(&StarBrush);
     if (TextBrush)GarbageCollector(&TextBrush);
 
     if (bmpBigAsteroid)GarbageCollector(&bmpBigAsteroid);
@@ -253,6 +255,10 @@ void Init2D()
 
     if (Draw)
         Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::AntiqueWhite), &StarBrush);
+    if (hr != S_OK)ErrExit(eD2D, L"Error creating D2D1 Star Brush !");
+
+    if (Draw)
+        Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Goldenrod), &BigStarBrush);
     if (hr != S_OK)ErrExit(eD2D, L"Error creating D2D1 Star Brush !");
 
     if (Draw)
@@ -698,6 +704,31 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
             }
             break;
 
+        case WM_KEYDOWN:
+            switch (LOWORD(wParam))
+            {
+            case VK_RIGHT:
+                if (Ship)Ship->dir = dirs::right;
+                break;
+
+            case VK_LEFT:
+                if (Ship)Ship->dir = dirs::left;
+                break;
+
+            case VK_UP:
+                if (Ship)Ship->dir = dirs::up;
+                break;
+
+            case VK_DOWN:
+                if (Ship)Ship->dir = dirs::down;
+                break;
+
+            case VK_CONTROL:
+                if (Ship)Ship->dir = dirs::stop;
+                break;
+            }
+            break;
+
     default: return DefWindowProc(hwnd, ReceivedMsg, wParam, lParam);
     }
 
@@ -774,6 +805,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (Ship)
         {
+            Ship->Move(game_speed);
             switch (Ship->dir)
             {
             case dirs::up:
@@ -786,6 +818,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
             case dirs::left:
                 objects_dir = dirs::right;
+                break;
+
+            case dirs::right:
+                objects_dir = dirs::left;
                 break;
 
             case dirs::up_left:
@@ -803,6 +839,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             case dirs::down_right:
                 objects_dir = dirs::up_left;
                 break;
+
+            case dirs::stop:
+                objects_dir = dirs::stop;
+                break;
             }
         }
 
@@ -811,7 +851,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             for (int i = 0; i < vStars.size(); i++)
             {
                 vStars[i]->dir = objects_dir;
-                vStars[i]->Move();
+                vStars[i]->Move(game_speed);
             }
         }
 
@@ -859,9 +899,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         {
             for (int i = 0; i < vStars.size(); i++)
                 if (vStars[i]->x >= 0 && vStars[i]->x <= cl_width && vStars[i]->y > 75.0f && vStars[i]->y <= cl_height)
-                    Draw->FillEllipse(D2D1::Ellipse(D2D1::Point2F(vStars[i]->ex - 25.0f, vStars[i]->ey - 25.0f), 
-                        vStars[i]->ex - vStars[i]->x, 
-                        vStars[i]->ey - vStars[i]->y), StarBrush);
+                {
+                    if (vStars[i]->GetType() == types::small_star)
+                        Draw->FillEllipse(D2D1::Ellipse(D2D1::Point2F(vStars[i]->ex - 25.0f, vStars[i]->ey - 25.0f),
+                            vStars[i]->ex - vStars[i]->x,
+                            vStars[i]->ey - vStars[i]->y), StarBrush);
+                    else
+                        Draw->FillEllipse(D2D1::Ellipse(D2D1::Point2F(vStars[i]->ex - 25.0f, vStars[i]->ey - 25.0f),
+                            vStars[i]->ex - vStars[i]->x,
+                            vStars[i]->ey - vStars[i]->y), BigStarBrush);
+                }
         }
 
         if (Ship)
@@ -870,9 +917,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 Draw->DrawBitmap(bmpShipU[Ship->GetFrame()], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
             else if (Ship->dir == dirs::down)
                 Draw->DrawBitmap(bmpShipD[Ship->GetFrame()], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
-            else if (Ship->dir == dirs::up_right || Ship->dir == dirs::down_right)
+            else if (Ship->dir == dirs::up_right || Ship->dir == dirs::down_right || Ship->dir == dirs::right)
                 Draw->DrawBitmap(bmpShipR[Ship->GetFrame()], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
-            else if (Ship->dir == dirs::down_left || Ship->dir == dirs::up_left)
+            else if (Ship->dir == dirs::down_left || Ship->dir == dirs::up_left || Ship->dir == dirs::left)
                 Draw->DrawBitmap(bmpShipL[Ship->GetFrame()], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
         }
         ////////////////////////////////////////////////////
