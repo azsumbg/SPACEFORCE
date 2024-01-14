@@ -707,6 +707,25 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
         }
         break;
 
+        case WM_LBUTTONDOWN:
+            if (LOWORD(lParam) >= b1Rect.left && LOWORD(lParam) <= b1Rect.right
+                && HIWORD(lParam) >= b1Rect.top && HIWORD(lParam) <= b1Rect.bottom)
+            {
+                if (name_set)
+                {
+                    if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+                    break;
+                }
+                else
+                {
+                    if (sound)mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
+                    if (DialogBoxW(bIns, MAKEINTRESOURCE(IDD_PLAYER), hwnd, &bDlgProc) == IDOK)name_set = true;
+                    break;
+                }
+            }
+
+            break;
+
         case WM_COMMAND:
             switch (LOWORD(wParam))
             {
@@ -750,28 +769,34 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
             switch (LOWORD(wParam))
             {
             case VK_RIGHT:
+                if (sound)mciSendString(L"play .\\res\\snd\\engine.wav", NULL, NULL, NULL);
                 if (Ship)Ship->dir = dirs::right;
                 break;
 
             case VK_LEFT:
+                if (sound)mciSendString(L"play .\\res\\snd\\engine.wav", NULL, NULL, NULL);
                 if (Ship)Ship->dir = dirs::left;
                 break;
 
             case VK_UP:
                 if (Ship)Ship->dir = dirs::up;
+                if (sound)mciSendString(L"play .\\res\\snd\\engine.wav", NULL, NULL, NULL);
                 break;
 
             case VK_DOWN:
                 if (Ship)Ship->dir = dirs::down;
+                if (sound)mciSendString(L"play .\\res\\snd\\engine.wav", NULL, NULL, NULL);
                 break;
 
             case VK_CONTROL:
                 if (Ship)Ship->dir = dirs::stop;
+                if (sound)mciSendString(L"play .\\res\\snd\\stop.wav", NULL, NULL, NULL);
                 break;
 
             case VK_SHIFT:
                 if (Ship)
                 {
+                    if (sound)mciSendString(L"play .\\res\\snd\\laser.wav", NULL, NULL, NULL);
                     switch (Ship->dir)
                     {
                     case dirs::up:
@@ -955,7 +980,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
                 }
                 
-                vMeteors[i]->Move(game_speed);
+                if (vMeteors[i]->GetType() != types::explosion)vMeteors[i]->Move(game_speed);
             }
         }
 
@@ -1020,7 +1045,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 if (!((*met)->x >= Ship->ex || (*met)->ex <= Ship->x || (*met)->y >= Ship->ey || (*met)->ey <= Ship->y))
                 {
                     Ship->lifes -= 20;
-                    
+                
+                    if (sound)mciSendString(L"play .\\res\\snd\\damage.wav", NULL, NULL, NULL);
+
                     switch (Ship->dir)
                     {
                     case dirs::up:
@@ -1083,6 +1110,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                                 break;
 
                             case types::meteor:
+                                if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
+                                (*meteor)->y -= 100.0f;
                                 (*meteor)->SetType(types::explosion);                                    
                                 score += 100;
                                 break;
@@ -1091,6 +1120,32 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         }
                     }
                 }
+            }
+        }
+
+        if (vMeteors.size() < 3)
+        {
+            float tx = static_cast<float>(rand() % 800);
+            float ty = static_cast<float>(rand() % 400 + 50);
+            int ttype = rand() % 4;
+
+            switch (ttype)
+            {
+            case 0:
+                vMeteors.push_back(iObjectFactory(types::big_asteroid, tx, ty));
+                break;
+
+            case 1:
+                vMeteors.push_back(iObjectFactory(types::mid_asteroid, tx, ty));
+                break;
+
+            case 2:
+                vMeteors.push_back(iObjectFactory(types::small_asteroid, tx, ty));
+                break;
+
+            case 3:
+                vMeteors.push_back(iObjectFactory(types::meteor, tx, ty));
+                break;
             }
         }
 
@@ -1129,7 +1184,39 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (neb1)Draw->DrawBitmap(bmpNebula1, D2D1::RectF(neb1->x, neb1->y, neb1->ex, neb1->ey));
         if (neb2)Draw->DrawBitmap(bmpNebula2, D2D1::RectF(neb2->x, neb2->y, neb2->ex, neb2->ey));
+
+        wchar_t status[150] = L"\0";
+        wchar_t add[5] = L"\0";
+        int st_size = 0;
+
+        wcscpy_s(status, current_player);
         
+        wcscat_s(status, L", ниво: ");
+        swprintf(add, 2, L"%f", game_speed);
+        wcscat_s(status, add);
+
+        wcscat_s(status, L", резултат: ");
+        swprintf(add, 5, L"%d", score);
+        wcscat_s(status, add);
+
+        wcscat_s(status, L", време: ");
+        if (minutes < 10)wcscat_s(status, L"0");
+        swprintf(add, 3, L"%d", minutes);
+        wcscat_s(status, add);
+
+        wcscat_s(status, L" : ");
+        if (seconds < 10)wcscat_s(status, L"0");
+        swprintf(add, 3, L"%d", seconds);
+        wcscat_s(status, add);
+
+        for (int i = 0; i < 150; ++i)
+        {
+            if (status[i] != '\0')st_size++;
+            else break;
+        }
+
+        Draw->DrawText(status, st_size, nrmTextFormat, D2D1::RectF(10.0f, 60.0f, cl_width, 120.0f), TextBrush);
+
         if (!vStars.empty())
         {
             for (int i = 0; i < vStars.size(); i++)
@@ -1155,14 +1242,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     FieldStops[0].position = 0;
                     FieldStops[0].color = D2D1::ColorF(D2D1::ColorF::Green);
                     FieldStops[1].position = 1.0f;
-                    FieldStops[1].color = D2D1::ColorF(D2D1::ColorF::AliceBlue);
+                    FieldStops[1].color = D2D1::ColorF(D2D1::ColorF::LightGreen);
                 }
                 else if (Ship->lifes>=40)
                 {
                     FieldStops[0].position = 0;
                     FieldStops[0].color = D2D1::ColorF(D2D1::ColorF::Yellow);
                     FieldStops[1].position = 1.0f;
-                    FieldStops[1].color = D2D1::ColorF(D2D1::ColorF::AliceBlue);
+                    FieldStops[1].color = D2D1::ColorF(D2D1::ColorF::LightYellow);
                 }
                 else
                 {
@@ -1244,8 +1331,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 case types::explosion:
                     {
                         int last_frame = vMeteors[i]->GetFrame();
-                        Draw->DrawBitmap(bmpExplosion[last_frame], D2D1::RectF(vMeteors[i]->x, vMeteors[i]->y, vMeteors[i]->ex,
-                            vMeteors[i]->ey));
+                        Draw->DrawBitmap(bmpExplosion[last_frame], D2D1::RectF(vMeteors[i]->x, vMeteors[i]->y, 
+                            vMeteors[i]->ex, vMeteors[i]->ey));
                         if (last_frame >= 23)
                         {
                             vMeteors[i]->Release();
