@@ -452,7 +452,7 @@ void InitGame()
     for (int i = 0; i < 7; i++)
     {
         float tx = static_cast<float>(rand() % 800);
-        float ty = static_cast<float>(rand() % 500 + 50);
+        float ty = static_cast<float>(rand() % 400 + 50);
         int ttype = rand() % 4;
 
         switch (ttype)
@@ -1011,7 +1011,88 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (Ship && !vMeteors.empty())
+        {
+            for (std::vector<obj_ptr>::iterator met = vMeteors.begin(); met < vMeteors.end(); met++)
+            {
+                if ((*met)->GetType() == types::explosion)continue;
 
+                if (!((*met)->x >= Ship->ex || (*met)->ex <= Ship->x || (*met)->y >= Ship->ey || (*met)->ey <= Ship->y))
+                {
+                    Ship->lifes -= 20;
+                    
+                    switch (Ship->dir)
+                    {
+                    case dirs::up:
+                        Ship->y += 100;
+                        if (Ship->y >= cl_height)Ship->y = 50.0f;
+                        Ship->SetEdges();
+                        break;
+
+                    case dirs::down:
+                        Ship->y -= 100;
+                        if (Ship->y <= 50.0f) Ship->y = cl_height - 100.0f;
+                        Ship->SetEdges();
+                        break;
+
+                    case dirs::left:
+                        Ship->x += 100;
+                        if (Ship->x >= cl_width)Ship->x = cl_width - 100.0f;
+                        Ship->SetEdges();
+                        break;
+
+                    case dirs::right:
+                        Ship->x -= 100;
+                        if (Ship->x < 0)Ship->x = 0.0f;
+                        Ship->SetEdges();
+                        break;
+                    }
+                    if (Ship->lifes <= 0)Ship->SetType(types::explosion);
+                    break;
+                }
+            }
+        }
+
+        if (!vLasers.empty() && !vMeteors.empty())
+        {
+            for (std::vector<obj_ptr>::iterator meteor = vMeteors.begin(); meteor < vMeteors.end(); ++meteor)
+            {
+                for (std::vector<obj_ptr>::iterator laser = vLasers.begin(); laser < vLasers.end(); laser++)
+                {
+                    if (!((*meteor)->x >= (*laser)->ex || (*meteor)->ex <= (*laser)->x ||
+                        (*meteor)->y >= (*laser)->ey || (*meteor)->ey <= (*laser)->y))
+                    {
+                        if ((*meteor)->GetType() != types::explosion)
+                        {
+                            score += 10;
+                            (*laser)->Release();
+                            vLasers.erase(laser);
+                
+                            switch ((*meteor)->GetType())
+                            {
+                            case types::big_asteroid:
+                                (*meteor)->SetType(types::mid_asteroid);
+                                break;
+
+                            case types::mid_asteroid:
+                                (*meteor)->SetType(types::small_asteroid);
+                                break;
+
+                            case types::small_asteroid:
+                                (*meteor)->SetType(types::meteor);
+                                break;
+
+                            case types::meteor:
+                                (*meteor)->SetType(types::explosion);                                    
+                                score += 100;
+                                break;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
 
         // DRAW THINGS **************************
 
@@ -1126,8 +1207,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             else if (Ship->dir == dirs::down_left || Ship->dir == dirs::up_left || Ship->dir == dirs::left)
                 Draw->DrawBitmap(bmpShipL[Ship->GetFrame()], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
         }
-
-       
 
         if (!vMeteors.empty())
         {
