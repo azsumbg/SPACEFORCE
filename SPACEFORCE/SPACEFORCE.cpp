@@ -72,8 +72,8 @@ bool b1Hglt = false;
 bool b2Hglt = false;
 bool b3Hglt = false;
 bool name_set = false;
+bool laser_upgraded = false;
 
-int lifes = 100;
 int seconds = 0;
 int minutes = 0;
 int score = 0;
@@ -121,6 +121,10 @@ ID2D1Bitmap* bmpShipR[2] = { nullptr };
 ID2D1Bitmap* bmpShipU[2] = { nullptr };
 ID2D1Bitmap* bmpShipD[2] = { nullptr };
 
+D2D1_GRADIENT_STOP FieldStops[2] = { 0 };
+ID2D1GradientStopCollection* FieldCollection = nullptr;
+ID2D1RadialGradientBrush* ShipForceBrush = nullptr;
+
 ///////////////////////////////////////////////
 
 prime_ptr neb1 = nullptr;
@@ -128,7 +132,8 @@ prime_ptr neb2 = nullptr;
 obj_ptr Ship = nullptr;
 
 std::vector<obj_ptr> vStars;
-
+std::vector<obj_ptr> vMeteors;
+std::vector<obj_ptr> vLasers;
 
 
 ///////////////////////////////////////////////
@@ -191,6 +196,8 @@ void SafeRelease()
     for (int i = 0; i < 2; i++)
         if (bmpShipD[i])GarbageCollector(&bmpShipD[i]);
 
+    if (FieldCollection)GarbageCollector(&FieldCollection);
+    if (ShipForceBrush)GarbageCollector(&ShipForceBrush);
 }
 void ErrExit(int _which_error, LPCWSTR err_log = L"\0")
 {
@@ -408,9 +415,9 @@ void InitGame()
     wcscpy_s(current_player, L"A PILOT");
     name_set = false;
     game_speed = 1.0f;
+    laser_upgraded = false;
 
     score = 0;
-    lifes = 100;
     seconds = 0;
     minutes = 0;
 
@@ -422,21 +429,56 @@ void InitGame()
     neb2 = iPrimeFactory(types::nebula2, (float)(rand() % 600), 450.0f);
     
     vStars.clear();
+    vMeteors.clear();
+    vLasers.clear();
 
     for (float x_counter = frame_min_width; x_counter < frame_max_width; x_counter += (30.0f + rand() % 60))
     {
         for (float y_counter = frame_min_height; y_counter < frame_max_height; y_counter += (30.0f + rand() % 70))
         {
-            int acase = rand() % 3;
+            int acase = rand() % 4;
             
             if (acase == 0)
                 vStars.push_back(iObjectFactory(types::small_star, x_counter, y_counter));
             else if (acase == 1)
                 vStars.push_back(iObjectFactory(types::big_star, x_counter, y_counter));
+            else continue;
         }
     }
 
     Ship = iObjectFactory(types::ship, cl_width / 2, cl_height - 100.0f);
+    Ship->lifes = 120;
+
+    for (int i = 0; i < 7; i++)
+    {
+        float tx = static_cast<float>(rand() % 800);
+        float ty = static_cast<float>(rand() % 500 + 50);
+        int ttype = rand() % 4;
+
+        switch (ttype)
+        {
+        case 0:
+            vMeteors.push_back(iObjectFactory(types::big_asteroid, tx, ty));
+            break;
+
+        case 1:
+            vMeteors.push_back(iObjectFactory(types::mid_asteroid, tx, ty));
+            break;
+
+        case 2:
+            vMeteors.push_back(iObjectFactory(types::small_asteroid, tx, ty));
+            break;
+
+        case 3:
+            vMeteors.push_back(iObjectFactory(types::meteor, tx, ty));
+            break;
+
+        }
+
+        if (tx > cl_width) vMeteors.back()->dir = dirs::right;
+        else vMeteors.back()->dir = dirs::left;
+        
+    }
 
 }
 
@@ -726,6 +768,37 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
             case VK_CONTROL:
                 if (Ship)Ship->dir = dirs::stop;
                 break;
+
+            case VK_SHIFT:
+                if (Ship)
+                {
+                    switch (Ship->dir)
+                    {
+                    case dirs::up:
+                        if (!laser_upgraded)vLasers.push_back(iObjectFactory(types::vlaser, Ship->x + 43.0f, Ship->y));
+                        else vLasers.push_back(iObjectFactory(types::vstrong_laser, Ship->x + 43.0f, Ship->y));
+                        if (!vLasers.empty())vLasers.back()->dir = dirs::up;
+                        break;
+
+                    case dirs::down:
+                        if (!laser_upgraded)vLasers.push_back(iObjectFactory(types::vlaser, Ship->x + 43.0f, Ship->ey));
+                        else vLasers.push_back(iObjectFactory(types::vstrong_laser, Ship->x + 43.0f, Ship->ey));
+                        if (!vLasers.empty())vLasers.back()->dir = dirs::down;
+                        break;
+
+                    case dirs::left:
+                        if (!laser_upgraded)vLasers.push_back(iObjectFactory(types::hlaser, Ship->x, Ship->y + 50.0f));
+                        else vLasers.push_back(iObjectFactory(types::hstrong_laser, Ship->x, Ship->y + 50.0f));
+                        if (!vLasers.empty())vLasers.back()->dir = dirs::left;
+                        break;
+
+                    case dirs::right:
+                        if (!laser_upgraded)vLasers.push_back(iObjectFactory(types::hlaser, Ship->ex, Ship->y + 50.0f));
+                        else vLasers.push_back(iObjectFactory(types::hstrong_laser, Ship->ex, Ship->y + 50.0f));
+                        if (!vLasers.empty())vLasers.back()->dir = dirs::right;
+                        break;
+                    }
+                }
             }
             break;
 
@@ -824,22 +897,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 objects_dir = dirs::left;
                 break;
 
-            case dirs::up_left:
-                objects_dir = dirs::down_right;
-                break;
-
-            case dirs::up_right:
-                objects_dir = dirs::down_left;
-                break;
-
-            case dirs::down_left:
-                objects_dir = dirs::up_right;
-                break;
-
-            case dirs::down_right:
-                objects_dir = dirs::up_left;
-                break;
-
             case dirs::stop:
                 objects_dir = dirs::stop;
                 break;
@@ -855,6 +912,104 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (!vMeteors.empty() && Ship)
+        {
+            for (int i = 0; i < vMeteors.size(); i++)
+            {
+                switch (Ship->dir)
+                {
+                case dirs::stop:
+                    if (vMeteors[i]->x >= cl_width / 2)vMeteors[i]->dir = dirs::right;
+                    else vMeteors[i]->dir = dirs::left;
+                    break;
+
+                case dirs::up:
+                    if (vMeteors[i]->dir == dirs::up)vMeteors[i]->dir = dirs::down;
+                    else if (vMeteors[i]->dir == dirs::down)vMeteors[i]->dir = dirs::up;
+                    else if (vMeteors[i]->dir == dirs::left || vMeteors[i]->dir == dirs::up_left ||
+                        vMeteors[i]->dir == dirs::down_left) vMeteors[i]->dir = dirs::down_left;
+                    else if (vMeteors[i]->dir == dirs::right || vMeteors[i]->dir == dirs::up_right ||
+                        vMeteors[i]->dir == dirs::down_right) vMeteors[i]->dir = dirs::down_right;
+                    break;
+
+                case dirs::down:
+                    if (vMeteors[i]->dir == dirs::up)vMeteors[i]->dir = dirs::down;
+                    else if (vMeteors[i]->dir == dirs::down)vMeteors[i]->dir = dirs::up;
+                    else if (vMeteors[i]->dir == dirs::left || vMeteors[i]->dir == dirs::up_left ||
+                        vMeteors[i]->dir == dirs::down_left) vMeteors[i]->dir = dirs::up_left;
+                    else if (vMeteors[i]->dir == dirs::right || vMeteors[i]->dir == dirs::up_right ||
+                        vMeteors[i]->dir == dirs::down_right) vMeteors[i]->dir = dirs::up_right;
+                    break;
+
+                case dirs::left:
+                    if (vMeteors[i]->dir == dirs::left)vMeteors[i]->dir = dirs::right;
+                    else if (vMeteors[i]->dir == dirs::up_left)vMeteors[i]->dir = dirs::down_right;
+                    else if (vMeteors[i]->dir == dirs::down_left)vMeteors[i]->dir = dirs::up_right;
+                    break;
+
+                case dirs::right:
+                    if (vMeteors[i]->dir == dirs::right)vMeteors[i]->dir = dirs::left;
+                    else if (vMeteors[i]->dir == dirs::up_right)vMeteors[i]->dir = dirs::down_left;
+                    else if (vMeteors[i]->dir == dirs::down_right)vMeteors[i]->dir = dirs::up_left;
+                    break;
+
+                }
+                
+                vMeteors[i]->Move(game_speed);
+            }
+        }
+
+        if (!vLasers.empty())
+        {
+            for (std::vector<obj_ptr>::iterator las = vLasers.begin(); las < vLasers.end(); ++las)
+            {
+                bool out = false;
+                (*las)->Move(game_speed);
+                switch ((*las)->dir)
+                {
+                case dirs::up:
+                    if ((*las)->y <= 50.0f)
+                    {
+                        (*las)->Release();
+                        vLasers.erase(las);
+                        out = true;
+                        break;
+                    }
+                    break;
+
+                case dirs::down:
+                    if ((*las)->ey >= cl_height)
+                    {
+                        (*las)->Release();
+                        vLasers.erase(las);
+                        out = true;
+                        break;
+                    }
+                    break;
+
+                case dirs::left:
+                    if ((*las)->x <= 0)
+                    {
+                        (*las)->Release();
+                        vLasers.erase(las);
+                        out = true;
+                        break;
+                    }
+                    break;
+
+                case dirs::right:
+                    if ((*las)->ex >= cl_width)
+                    {
+                        (*las)->Release();
+                        vLasers.erase(las);
+                        out = true;
+                        break;
+                    }
+                    break;
+                }
+                if (out)break;
+            }
+        }
 
 
 
@@ -894,7 +1049,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         if (neb1)Draw->DrawBitmap(bmpNebula1, D2D1::RectF(neb1->x, neb1->y, neb1->ex, neb1->ey));
         if (neb2)Draw->DrawBitmap(bmpNebula2, D2D1::RectF(neb2->x, neb2->y, neb2->ex, neb2->ey));
         
-
         if (!vStars.empty())
         {
             for (int i = 0; i < vStars.size(); i++)
@@ -913,7 +1067,57 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (Ship)
         {
-            if (Ship->dir == dirs::up || Ship->dir == dirs::stop)
+            if (Ship->GetType() != types::explosion)
+            {
+                if (Ship->lifes >= 80)
+                {
+                    FieldStops[0].position = 0;
+                    FieldStops[0].color = D2D1::ColorF(D2D1::ColorF::Green);
+                    FieldStops[1].position = 1.0f;
+                    FieldStops[1].color = D2D1::ColorF(D2D1::ColorF::AliceBlue);
+                }
+                else if (Ship->lifes>=40)
+                {
+                    FieldStops[0].position = 0;
+                    FieldStops[0].color = D2D1::ColorF(D2D1::ColorF::Yellow);
+                    FieldStops[1].position = 1.0f;
+                    FieldStops[1].color = D2D1::ColorF(D2D1::ColorF::AliceBlue);
+                }
+                else
+                {
+                    FieldStops[0].position = 0;
+                    FieldStops[0].color = D2D1::ColorF(D2D1::ColorF::DarkRed);
+                    FieldStops[1].position = 1.0f;
+                    FieldStops[1].color = D2D1::ColorF(D2D1::ColorF::OrangeRed);
+                }
+
+                if (Draw)
+                {
+                    if (Draw->CreateGradientStopCollection(FieldStops, 2, &FieldCollection) != S_OK)ErrExit(eD2D,
+                        L"Error in ShipForceGradientStopCollection ");
+                    if (Draw->CreateRadialGradientBrush(D2D1::RadialGradientBrushProperties(D2D1::Point2F(Ship->x + 45.0f,
+                        Ship->y + 45.0f), D2D1::Point2F(0, 0), 60.0f, 60.0f), FieldCollection, &ShipForceBrush) != S_OK)
+                        ErrExit(eD2D, L"Error in ShipForceGradientBrush ");
+   
+                    Draw->FillEllipse(D2D1::Ellipse(D2D1::Point2F(Ship->x + 45.0f, Ship->y + 45.0f), 60.0f, 60.0f),
+                        ShipForceBrush);
+
+                    GarbageCollector(&FieldCollection);
+                    GarbageCollector(&ShipForceBrush);
+                }
+
+            }
+        }
+       
+        if (Ship)
+        {
+            if (Ship->GetType() == types::explosion)
+            {
+                int aframe = Ship->GetFrame();
+                Draw->DrawBitmap(bmpExplosion[aframe], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
+                if (aframe >= 23)GameOver();
+            }
+            else if (Ship->dir == dirs::up || Ship->dir == dirs::stop)
                 Draw->DrawBitmap(bmpShipU[Ship->GetFrame()], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
             else if (Ship->dir == dirs::down)
                 Draw->DrawBitmap(bmpShipD[Ship->GetFrame()], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
@@ -922,6 +1126,77 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             else if (Ship->dir == dirs::down_left || Ship->dir == dirs::up_left || Ship->dir == dirs::left)
                 Draw->DrawBitmap(bmpShipL[Ship->GetFrame()], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
         }
+
+       
+
+        if (!vMeteors.empty())
+        {
+            for (int i = 0; i < vMeteors.size(); i++)
+            {
+                if (vMeteors[i]->ey <= 50 || vMeteors[i]->ey >= cl_height)continue;
+                bool killed = false;
+
+                switch (vMeteors[i]->GetType())
+                {
+                case types::big_asteroid:
+                    Draw->DrawBitmap(bmpBigAsteroid, D2D1::RectF(vMeteors[i]->x, vMeteors[i]->y, vMeteors[i]->ex,
+                        vMeteors[i]->ey));
+                    break;
+
+                case types::mid_asteroid:
+                    Draw->DrawBitmap(bmpMidAsteroid, D2D1::RectF(vMeteors[i]->x, vMeteors[i]->y, vMeteors[i]->ex,
+                        vMeteors[i]->ey));
+                    break;
+
+                case types::small_asteroid:
+                    Draw->DrawBitmap(bmpBigAsteroid, D2D1::RectF(vMeteors[i]->x, vMeteors[i]->y, vMeteors[i]->ex,
+                        vMeteors[i]->ey));
+                    break;
+
+                case types::meteor:
+                    if (vMeteors[i]->x >= cl_width / 2)
+                        Draw->DrawBitmap(bmpMeteorR, D2D1::RectF(vMeteors[i]->x, vMeteors[i]->y, vMeteors[i]->ex,
+                            vMeteors[i]->ey));
+                    else
+                        Draw->DrawBitmap(bmpMeteorL, D2D1::RectF(vMeteors[i]->x, vMeteors[i]->y, vMeteors[i]->ex,
+                            vMeteors[i]->ey));
+                    break;
+
+                case types::explosion:
+                    {
+                        int last_frame = vMeteors[i]->GetFrame();
+                        Draw->DrawBitmap(bmpExplosion[last_frame], D2D1::RectF(vMeteors[i]->x, vMeteors[i]->y, vMeteors[i]->ex,
+                            vMeteors[i]->ey));
+                        if (last_frame >= 23)
+                        {
+                            vMeteors[i]->Release();
+                            vMeteors.erase(vMeteors.begin() + i);
+                            killed = true;
+                            break;
+                        }
+                    }
+                    break;
+
+                }
+                if (killed)break;
+            }
+        }
+
+        if (!vLasers.empty())
+        {
+            for (int i = 0; i < vLasers.size(); ++i)
+            {
+                if (vLasers[i]->GetType() == types::hlaser)
+                    Draw->DrawBitmap(bmpLaserH, D2D1::RectF(vLasers[i]->x, vLasers[i]->y, vLasers[i]->ex, vLasers[i]->ey));
+                else if (vLasers[i]->GetType() == types::vlaser)
+                    Draw->DrawBitmap(bmpLaserV, D2D1::RectF(vLasers[i]->x, vLasers[i]->y, vLasers[i]->ex, vLasers[i]->ey));
+                else if (vLasers[i]->GetType() == types::hstrong_laser)
+                    Draw->DrawBitmap(bmpStrongLaserH, D2D1::RectF(vLasers[i]->x, vLasers[i]->y, vLasers[i]->ex, vLasers[i]->ey));
+                else if (vLasers[i]->GetType() == types::vstrong_laser)
+                    Draw->DrawBitmap(bmpStrongLaserV, D2D1::RectF(vLasers[i]->x, vLasers[i]->y, vLasers[i]->ex, vLasers[i]->ey));
+            }
+        }
+
         ////////////////////////////////////////////////////
 
 
