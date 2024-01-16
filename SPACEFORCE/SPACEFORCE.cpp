@@ -79,6 +79,7 @@ int minutes = 0;
 int score = 0;
 float game_speed = 1.0f;
 wchar_t current_player[16] = L"A PILOT";
+int spare_life = 15;
 
 dirs objects_dir = dirs::stop;
 
@@ -92,6 +93,7 @@ IDWriteTextFormat* nrmTextFormat = nullptr;
 IDWriteTextFormat* bigTextFormat = nullptr;
 
 ID2D1RadialGradientBrush* ButBckgBrush = nullptr;
+ID2D1LinearGradientBrush* SpareLifeBrush = nullptr;
 ID2D1SolidColorBrush* ButBrush = nullptr;
 ID2D1SolidColorBrush* ButHgltBrush = nullptr;
 ID2D1SolidColorBrush* ButInactiveBrush = nullptr;
@@ -130,6 +132,8 @@ ID2D1RadialGradientBrush* ShipForceBrush = nullptr;
 prime_ptr neb1 = nullptr;
 prime_ptr neb2 = nullptr;
 obj_ptr Ship = nullptr;
+obj_ptr Spare = nullptr;
+obj_ptr Station = nullptr;
 
 std::vector<obj_ptr> vStars;
 std::vector<obj_ptr> vMeteors;
@@ -198,6 +202,8 @@ void SafeRelease()
 
     if (FieldCollection)GarbageCollector(&FieldCollection);
     if (ShipForceBrush)GarbageCollector(&ShipForceBrush);
+
+    GarbageCollector(&SpareLifeBrush);
 }
 void ErrExit(int _which_error, LPCWSTR err_log = L"\0")
 {
@@ -244,6 +250,23 @@ void Init2D()
 
     GarbageCollector(&gStopCollection);
 
+    gStops[0].position = 0;
+    gStops[0].color = D2D1::ColorF(D2D1::ColorF::DarkBlue);
+    gStops[1].position = 1.0f;
+    gStops[1].color = D2D1::ColorF(D2D1::ColorF::DarkCyan);
+    
+    if (Draw)
+        hr = Draw->CreateGradientStopCollection(gStops, 2, &gStopCollection);
+    if (hr != S_OK)ErrExit(eD2D, L"Error creating D2D1 GradientStop Collection ! ");
+
+    if (Draw)
+        hr = Draw->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties(D2D1::Point2F(cl_width / 2 + 150.0f, 80.0f),
+            D2D1::Point2F(cl_width / 2 + 250.0f, 100.0f)), gStopCollection, &SpareLifeBrush);
+    
+    if (hr != S_OK)ErrExit(eD2D, L"Error creating D2D1 LinearGradientBrush - life spare brush !");
+
+    GarbageCollector(&gStopCollection);
+    
     if (Draw)
         Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::IndianRed), &ButBrush);
     if (hr != S_OK)ErrExit(eD2D, L"Error creating D2D1 Button Brush !");
@@ -420,10 +443,16 @@ void InitGame()
     score = 0;
     seconds = 0;
     minutes = 0;
+    spare_life = 15;
 
     if (neb1)neb1->Release();
     if (neb2)neb2->Release();
     if (Ship)Ship->Release();
+    if (Spare)Spare->Release();
+    if (Station)Station->Release();
+
+    Spare = nullptr;
+    Station = nullptr;
 
     neb1 = iPrimeFactory(types::nebula1, (float)(rand() % 600), 80.0f);
     neb2 = iPrimeFactory(types::nebula2, (float)(rand() % 600), 450.0f);
@@ -589,6 +618,21 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
         {
             seconds = 0;
             minutes++;
+        }
+        if (Spare || laser_upgraded)
+        {
+            spare_life--;
+            if (spare_life <= 0)
+            {
+                laser_upgraded = false;
+                Spare->Release();
+                Spare = nullptr;
+            }
+        }
+        if (minutes >= 1 && !Station)
+        {
+            Station = iObjectFactory(types::station, static_cast<float>(rand() % 600), 60.0f);
+            Station->lifes = 250;
         }
         break;
 
@@ -984,6 +1028,96 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (Spare && Ship)
+        {
+            switch (Ship->dir)
+            {
+            case dirs::stop:
+                if (Spare->x >= cl_width / 2)Spare->dir = dirs::right;
+                else Spare->dir = dirs::left;
+                break;
+
+            case dirs::up:
+                if (Spare->dir == dirs::up)Spare->dir = dirs::down;
+                else if (Spare->dir == dirs::down)Spare->dir = dirs::up;
+                else if (Spare->dir == dirs::left || Spare->dir == dirs::up_left ||
+                    Spare->dir == dirs::down_left) Spare->dir = dirs::down_left;
+                else if (Spare->dir == dirs::right || Spare->dir == dirs::up_right ||
+                    Spare->dir == dirs::down_right) Spare->dir = dirs::down_right;
+                break;
+
+            case dirs::down:
+                if (Spare->dir == dirs::up)Spare->dir = dirs::down;
+                else if (Spare->dir == dirs::down)Spare->dir = dirs::up;
+                else if (Spare->dir == dirs::left || Spare->dir == dirs::up_left ||
+                    Spare->dir == dirs::down_left) Spare->dir = dirs::up_left;
+                else if (Spare->dir == dirs::right || Spare->dir == dirs::up_right ||
+                    Spare->dir == dirs::down_right) Spare->dir = dirs::up_right;
+                break;
+
+            case dirs::left:
+                if (Spare->dir == dirs::left)Spare->dir = dirs::right;
+                else if (Spare->dir == dirs::up_left)Spare->dir = dirs::down_right;
+                else if (Spare->dir == dirs::down_left)Spare->dir = dirs::up_right;
+                break;
+
+            case dirs::right:
+                if (Spare->dir == dirs::right)Spare->dir = dirs::left;
+                else if (Spare->dir == dirs::up_right)Spare->dir = dirs::down_left;
+                else if (Spare->dir == dirs::down_right)Spare->dir = dirs::up_left;
+                break;
+
+            }
+
+            Spare->Move(game_speed);
+          
+        }
+
+        if (Station && Ship)
+        {
+            switch (Station->dir)
+            {
+            case dirs::stop:
+                if (Station->x >= cl_width / 2)Station->dir = dirs::right;
+                else Station->dir = dirs::left;
+                break;
+
+            case dirs::up:
+                if (Station->dir == dirs::up)Station->dir = dirs::down;
+                else if (Station->dir == dirs::down)Station->dir = dirs::up;
+                else if (Station->dir == dirs::left || Station->dir == dirs::up_left ||
+                    Station->dir == dirs::down_left) Station->dir = dirs::down_left;
+                else if (Station->dir == dirs::right || Station->dir == dirs::up_right ||
+                    Station->dir == dirs::down_right) Station->dir = dirs::down_right;
+                break;
+
+            case dirs::down:
+                if (Station->dir == dirs::up)Station->dir = dirs::down;
+                else if (Station->dir == dirs::down)Station->dir = dirs::up;
+                else if (Station->dir == dirs::left || Station->dir == dirs::up_left ||
+                    Station->dir == dirs::down_left) Station->dir = dirs::up_left;
+                else if (Station->dir == dirs::right || Station->dir == dirs::up_right ||
+                    Station->dir == dirs::down_right) Station->dir = dirs::up_right;
+                break;
+
+            case dirs::left:
+                if (Station->dir == dirs::left)Station->dir = dirs::right;
+                else if (Station->dir == dirs::up_left)Station->dir = dirs::down_right;
+                else if (Station->dir == dirs::down_left)Station->dir = dirs::up_right;
+                break;
+
+            case dirs::right:
+                if (Station->dir == dirs::right)Station->dir = dirs::left;
+                else if (Station->dir == dirs::up_right)Station->dir = dirs::down_left;
+                else if (Station->dir == dirs::down_right)Station->dir = dirs::up_left;
+                break;
+
+            }
+
+            Station->Move(game_speed);
+
+        }
+
         if (!vLasers.empty())
         {
             for (std::vector<obj_ptr>::iterator las = vLasers.begin(); las < vLasers.end(); ++las)
@@ -1080,6 +1214,50 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (Station && !vMeteors.empty())
+        {
+            for (std::vector<obj_ptr>::iterator met = vMeteors.begin(); met < vMeteors.end(); met++)
+            {
+                if ((*met)->GetType() == types::explosion)continue;
+
+                if (!((*met)->x >= Station->ex || (*met)->ex <= Station->x || (*met)->y >= Station->ey || (*met)->ey <= Station->y))
+                {
+                    Station->lifes -= 20;
+
+                    if (sound)mciSendString(L"play .\\res\\snd\\damage.wav", NULL, NULL, NULL);
+
+                    switch (Station->dir)
+                    {
+                    case dirs::up:
+                        Station->y += 100;
+                        if (Station->y >= cl_height)Station->y = 50.0f;
+                        Station->SetEdges();
+                        break;
+
+                    case dirs::down:
+                        Station->y -= 100;
+                        if (Station->y <= 50.0f) Station->y = cl_height - 100.0f;
+                        Station->SetEdges();
+                        break;
+
+                    case dirs::left:
+                        Station->x += 100;
+                        if (Station->x >= cl_width)Station->x = cl_width - 100.0f;
+                        Station->SetEdges();
+                        break;
+
+                    case dirs::right:
+                        Station->x -= 100;
+                        if (Station->x < 0)Station->x = 0.0f;
+                        Station->SetEdges();
+                        break;
+                    }
+                    if (Station->lifes <= 0)Station->SetType(types::explosion);
+                    break;
+                }
+            }
+        }
+
         if (!vLasers.empty() && !vMeteors.empty())
         {
             for (std::vector<obj_ptr>::iterator meteor = vMeteors.begin(); meteor < vMeteors.end(); ++meteor)
@@ -1095,27 +1273,38 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             (*laser)->Release();
                             vLasers.erase(laser);
                 
-                            switch ((*meteor)->GetType())
+                            if (!laser_upgraded)
                             {
-                            case types::big_asteroid:
-                                (*meteor)->SetType(types::mid_asteroid);
-                                break;
+                                switch ((*meteor)->GetType())
+                                {
+                                case types::big_asteroid:
+                                    (*meteor)->SetType(types::mid_asteroid);
+                                    break;
 
-                            case types::mid_asteroid:
-                                (*meteor)->SetType(types::small_asteroid);
-                                break;
+                                case types::mid_asteroid:
+                                    (*meteor)->SetType(types::small_asteroid);
+                                    break;
 
-                            case types::small_asteroid:
-                                (*meteor)->SetType(types::meteor);
-                                break;
+                                case types::small_asteroid:
+                                    (*meteor)->SetType(types::meteor);
+                                    break;
 
-                            case types::meteor:
+                                case types::meteor:
+                                    if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
+                                    (*meteor)->y -= 100.0f;
+                                    (*meteor)->SetType(types::explosion);
+                                    score += 100;
+                                    break;
+                                }
+                            }
+                            else
+                            {
                                 if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
                                 (*meteor)->y -= 100.0f;
-                                (*meteor)->SetType(types::explosion);                                    
+                                (*meteor)->SetType(types::explosion);
                                 score += 100;
-                                break;
                             }
+
                             break;
                         }
                     }
@@ -1146,6 +1335,28 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             case 3:
                 vMeteors.push_back(iObjectFactory(types::meteor, tx, ty));
                 break;
+            }
+        }
+
+        if (Ship && Spare)
+        {
+            if (!(Ship->x >= Spare->ex || Ship->ex <= Spare->x || Ship->y >= Spare->ey || Ship->ey <= Spare->y))
+            {
+                if (rand() % 2 == 0)
+                {
+                    if (Ship->lifes + 20 <= 100)Ship->lifes += 20;
+                    else Ship->lifes = 100;
+                    if (sound)mciSendString(L"play .\\res\\snd\\lifes.wav", NULL, NULL, NULL);
+                }
+                else
+                {
+                    spare_life = 15;
+                    laser_upgraded = true;
+                    if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+                }
+
+                Spare->Release();
+                Spare = nullptr;
             }
         }
 
@@ -1335,6 +1546,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             vMeteors[i]->ex, vMeteors[i]->ey));
                         if (last_frame >= 23)
                         {
+                            
+                            if (!Spare && rand() % 10 == 6)
+                            {
+                                Spare = iObjectFactory(types::spare, vMeteors[i]->x, vMeteors[i]->y);
+                                spare_life = 15;
+                            }
                             vMeteors[i]->Release();
                             vMeteors.erase(vMeteors.begin() + i);
                             killed = true;
@@ -1360,6 +1577,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     Draw->DrawBitmap(bmpStrongLaserH, D2D1::RectF(vLasers[i]->x, vLasers[i]->y, vLasers[i]->ex, vLasers[i]->ey));
                 else if (vLasers[i]->GetType() == types::vstrong_laser)
                     Draw->DrawBitmap(bmpStrongLaserV, D2D1::RectF(vLasers[i]->x, vLasers[i]->y, vLasers[i]->ex, vLasers[i]->ey));
+            }
+        }
+
+        if (Spare)
+            Draw->DrawBitmap(bmpSpare, D2D1::RectF(Spare->x, Spare->y, Spare->ex, Spare->ey));
+
+        if (laser_upgraded)
+            Draw->DrawLine(D2D1::Point2F(cl_width / 2 + 150.0f, 80.0f), D2D1::Point2F((cl_width / 2 + 150.0f)
+                + spare_life * 6, 80.0f), SpareLifeBrush, 20.0f);
+
+        if (Station)
+        {
+            if (Station->GetType() != types::explosion)
+                Draw->DrawBitmap(bmpStation, D2D1::RectF(Station->x, Station->y, Station->ex, Station->ey));
+            else
+            {
+                int aframe = Station->GetFrame();
+                Draw->DrawBitmap(bmpExplosion[aframe], D2D1::RectF(Station->x, Station->y, Station->ex, Station->ey));
+                if (aframe >= 23)GameOver();
             }
         }
 
