@@ -629,7 +629,7 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
                 Spare = nullptr;
             }
         }
-        if (minutes >= 1 && !Station)
+        if (minutes >= 3 && !Station)
         {
             Station = iObjectFactory(types::station, static_cast<float>(rand() % 600), 60.0f);
             Station->lifes = 250;
@@ -1222,7 +1222,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
                 if (!((*met)->x >= Station->ex || (*met)->ex <= Station->x || (*met)->y >= Station->ey || (*met)->ey <= Station->y))
                 {
-                    Station->lifes -= 20;
+                    Station->lifes -= 50;
 
                     if (sound)mciSendString(L"play .\\res\\snd\\damage.wav", NULL, NULL, NULL);
 
@@ -1253,6 +1253,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         break;
                     }
                     if (Station->lifes <= 0)Station->SetType(types::explosion);
+                    
+                    (*met)->SetType(types::explosion);
                     break;
                 }
             }
