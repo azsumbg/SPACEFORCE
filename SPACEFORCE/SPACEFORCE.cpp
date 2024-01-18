@@ -520,6 +520,98 @@ void GameOver()
     bMsg.message = WM_QUIT;
     bMsg.wParam = 0;
 }
+void LevelUp()
+{
+    game_speed++;
+    laser_upgraded = false;
+    seconds = 0;
+    minutes = 0;
+    
+    if (neb1)neb1->Release();
+    if (neb2)neb2->Release();
+    if (Ship)Ship->Release();
+    if (Spare)Spare->Release();
+    if (Station)Station->Release();
+
+    Spare = nullptr;
+    Station = nullptr;
+
+    neb1 = iPrimeFactory(types::nebula1, (float)(rand() % 600), 80.0f);
+    neb2 = iPrimeFactory(types::nebula2, (float)(rand() % 600), 450.0f);
+
+    vStars.clear();
+    vMeteors.clear();
+    vLasers.clear();
+
+    for (float x_counter = frame_min_width; x_counter < frame_max_width; x_counter += (30.0f + rand() % 60))
+    {
+        for (float y_counter = frame_min_height; y_counter < frame_max_height; y_counter += (30.0f + rand() % 70))
+        {
+            int acase = rand() % 4;
+
+            if (acase == 0)
+                vStars.push_back(iObjectFactory(types::small_star, x_counter, y_counter));
+            else if (acase == 1)
+                vStars.push_back(iObjectFactory(types::big_star, x_counter, y_counter));
+            else continue;
+        }
+    }
+
+    Ship = iObjectFactory(types::ship, cl_width / 2, cl_height - 100.0f);
+    Ship->lifes = 120;
+
+    for (int i = 0; i < 7; i++)
+    {
+        float tx = static_cast<float>(rand() % 800);
+        float ty = static_cast<float>(rand() % 400 + 50);
+        int ttype = rand() % 4;
+
+        switch (ttype)
+        {
+        case 0:
+            vMeteors.push_back(iObjectFactory(types::big_asteroid, tx, ty));
+            break;
+
+        case 1:
+            vMeteors.push_back(iObjectFactory(types::mid_asteroid, tx, ty));
+            break;
+
+        case 2:
+            vMeteors.push_back(iObjectFactory(types::small_asteroid, tx, ty));
+            break;
+
+        case 3:
+            vMeteors.push_back(iObjectFactory(types::meteor, tx, ty));
+            break;
+
+        }
+
+        if (tx > cl_width) vMeteors.back()->dir = dirs::right;
+        else vMeteors.back()->dir = dirs::left;
+
+    }
+    ///////////////////////////////////////
+
+    if (sound)mciSendString(L"play .\\res\\snd\\levelup", NULL, NULL, NULL);
+
+    if (Draw && bigTextFormat && TextBrush)
+    {
+        wchar_t levtxt[19] = L"НИВОТО ПРЕМИНАТО !";
+        wchar_t showtxt[19] = L"\0";
+        
+        for (int i = 0; i < 19; ++i)
+        {
+            showtxt[i] = levtxt[i];
+            if (sound)mciSendString(L"play .\\res\\snd\\click.wav", NULL, NULL, NULL);
+
+            Draw->BeginDraw();
+            Draw->Clear(D2D1::ColorF(D2D1::ColorF::Black));
+            Draw->DrawText(showtxt, i, bigTextFormat, D2D1::RectF(100.0f, cl_height / 2, cl_width, cl_height), TextBrush);
+            Draw->EndDraw();
+        }
+    }
+}
+
 
 ////////////////////////////////////////////////
 
@@ -1359,6 +1451,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
                 Spare->Release();
                 Spare = nullptr;
+            }
+        }
+
+        if (Ship && Station)
+        {
+            if (!(Ship->x >= Station->ex || Ship->ex <= Station->x || Ship->y >= Station->ey || Ship->ey <= Station->y))
+            {
+                score += 100;
+                LevelUp();
             }
         }
 
