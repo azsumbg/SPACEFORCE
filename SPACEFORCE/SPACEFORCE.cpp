@@ -510,12 +510,76 @@ void InitGame()
     }
 
 }
+BOOL CheckRecord()
+{
+    if (score < 1)return no_record;
+    int result = 0;
+    CheckFile(record_file, &result);
+    if (result == FILE_NOT_EXIST)
+    {
+        std::wofstream rec(record_file);
+        rec << score << std::endl;
+        for (int i = 0; i < 16; i++)rec << static_cast<int>(current_player[i]) << std::endl;
+        rec.close();
+        return first_record;
+    }
+    else
+    {
+        std::wifstream check(record_file);
+        check >> result;
+        check.close();
 
+        if (result < score)
+        {
+            std::wofstream rec(record_file);
+            rec << score << std::endl;
+            for (int i = 0; i < 16; i++)rec << static_cast<int>(current_player[i]) << std::endl;
+            rec.close();
+            return record;
+        }
+    }
+    return no_record;
+}
 void GameOver()
 {
     pause = true;
     PlaySound(NULL, NULL, NULL);
     KillTimer(bHwnd, bTimer);
+
+    wchar_t status[50] = L"ООО, ЗАГУБИ !!!";
+    int size = 0;
+
+
+    switch (CheckRecord())
+    {
+    case no_record:
+        if (sound)PlaySound(L".\\res\\snd\\loose.wav", NULL, SND_ASYNC);
+        break;
+
+    case first_record:
+        if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_ASYNC);
+        wcscpy_s(status, L"ПЪРВИ РЕКОРД НА ИГРАТА !");
+        break;
+
+    case record:
+        if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_ASYNC);
+        wcscpy_s(status, L"СВЕТОВЕН РЕКОРД НА ИГРАТА !");
+        break;
+
+    }
+
+    for (int i = 0; i < 50; i++)
+    {
+        if (status[i] != '\0')size++;
+        else break;
+    }
+
+    Draw->BeginDraw();
+    Draw->Clear(D2D1::ColorF(D2D1::ColorF::Black));
+    Draw->DrawText(status, size, bigTextFormat, D2D1::RectF(100.0f, cl_height / 2, cl_width, cl_height), TextBrush);
+    Draw->EndDraw();
+
+    Sleep(6500);
 
     bMsg.message = WM_QUIT;
     bMsg.wParam = 0;
@@ -717,8 +781,11 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
             if (spare_life <= 0)
             {
                 laser_upgraded = false;
-                Spare->Release();
-                Spare = nullptr;
+                if (Spare)
+                {
+                    Spare->Release();
+                    Spare = nullptr;
+                }
             }
         }
         if (minutes >= 3 && !Station)
@@ -1120,47 +1187,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
-        if (Spare && Ship)
+        if (Spare)
         {
-            switch (Ship->dir)
-            {
-            case dirs::stop:
-                if (Spare->x >= cl_width / 2)Spare->dir = dirs::right;
-                else Spare->dir = dirs::left;
-                break;
-
-            case dirs::up:
-                if (Spare->dir == dirs::up)Spare->dir = dirs::down;
-                else if (Spare->dir == dirs::down)Spare->dir = dirs::up;
-                else if (Spare->dir == dirs::left || Spare->dir == dirs::up_left ||
-                    Spare->dir == dirs::down_left) Spare->dir = dirs::down_left;
-                else if (Spare->dir == dirs::right || Spare->dir == dirs::up_right ||
-                    Spare->dir == dirs::down_right) Spare->dir = dirs::down_right;
-                break;
-
-            case dirs::down:
-                if (Spare->dir == dirs::up)Spare->dir = dirs::down;
-                else if (Spare->dir == dirs::down)Spare->dir = dirs::up;
-                else if (Spare->dir == dirs::left || Spare->dir == dirs::up_left ||
-                    Spare->dir == dirs::down_left) Spare->dir = dirs::up_left;
-                else if (Spare->dir == dirs::right || Spare->dir == dirs::up_right ||
-                    Spare->dir == dirs::down_right) Spare->dir = dirs::up_right;
-                break;
-
-            case dirs::left:
-                if (Spare->dir == dirs::left)Spare->dir = dirs::right;
-                else if (Spare->dir == dirs::up_left)Spare->dir = dirs::down_right;
-                else if (Spare->dir == dirs::down_left)Spare->dir = dirs::up_right;
-                break;
-
-            case dirs::right:
-                if (Spare->dir == dirs::right)Spare->dir = dirs::left;
-                else if (Spare->dir == dirs::up_right)Spare->dir = dirs::down_left;
-                else if (Spare->dir == dirs::down_right)Spare->dir = dirs::up_left;
-                break;
-
-            }
-
+            Spare->dir = objects_dir;
             Spare->Move(game_speed);
           
         }
