@@ -73,6 +73,7 @@ bool b2Hglt = false;
 bool b3Hglt = false;
 bool name_set = false;
 bool laser_upgraded = false;
+bool game_over = false;
 
 int seconds = 0;
 int minutes = 0;
@@ -439,6 +440,7 @@ void InitGame()
     name_set = false;
     game_speed = 1.0f;
     laser_upgraded = false;
+    bool game_over = false;
 
     score = 0;
     seconds = 0;
@@ -542,13 +544,11 @@ BOOL CheckRecord()
 }
 void GameOver()
 {
-    pause = true;
     PlaySound(NULL, NULL, NULL);
     KillTimer(bHwnd, bTimer);
 
-    wchar_t status[50] = L"ООО, ЗАГУБИ !!!";
-    int size = 0;
-
+    wchar_t finstatus[50] = L"ООО, ЗАГУБИ !!!";
+    int finsize = 0;
 
     switch (CheckRecord())
     {
@@ -558,28 +558,28 @@ void GameOver()
 
     case first_record:
         if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_ASYNC);
-        wcscpy_s(status, L"ПЪРВИ РЕКОРД НА ИГРАТА !");
+        wcscpy_s(finstatus, L"ПЪРВИ РЕКОРД НА ИГРАТА !");
         break;
 
     case record:
         if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_ASYNC);
-        wcscpy_s(status, L"СВЕТОВЕН РЕКОРД НА ИГРАТА !");
+        wcscpy_s(finstatus, L"СВЕТОВЕН РЕКОРД НА ИГРАТА !");
         break;
 
     }
 
     for (int i = 0; i < 50; i++)
     {
-        if (status[i] != '\0')size++;
+        if (finstatus[i] != '\0')finsize++;
         else break;
     }
 
     Draw->BeginDraw();
     Draw->Clear(D2D1::ColorF(D2D1::ColorF::Black));
-    Draw->DrawText(status, size, bigTextFormat, D2D1::RectF(100.0f, cl_height / 2, cl_width, cl_height), TextBrush);
+    Draw->DrawText(finstatus, finsize, bigTextFormat, D2D1::RectF(100.0f, cl_height / 2 - 50.0f, cl_width, cl_height), TextBrush);
     Draw->EndDraw();
 
-    Sleep(6500);
+    Sleep(7000);
 
     bMsg.message = WM_QUIT;
     bMsg.wParam = 0;
@@ -670,12 +670,11 @@ void LevelUp()
 
             Draw->BeginDraw();
             Draw->Clear(D2D1::ColorF(D2D1::ColorF::Black));
-            Draw->DrawText(showtxt, i, bigTextFormat, D2D1::RectF(100.0f, cl_height / 2, cl_width, cl_height), TextBrush);
+            Draw->DrawText(showtxt, i, bigTextFormat, D2D1::RectF(100.0f, cl_height / 2 - 50.0f, cl_width, cl_height), TextBrush);
             Draw->EndDraw();
         }
     }
 }
-
 
 ////////////////////////////////////////////////
 
@@ -1048,7 +1047,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     if (result == FILE_EXIST)ErrExit(eStarted);
     
     std::wofstream tmp(Ltmp_file);
-    tmp << L"Игрътъ ръботи бря !";
+    tmp << L"Игрътъ ръботи бря !" <<std::endl;
     tmp.close();
 
     if (GetSystemMetrics(SM_CXSCREEN) + 100 < scr_width || GetSystemMetrics(SM_CYSCREEN) + 50 < scr_height)ErrExit(eScreen);
@@ -1626,7 +1625,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             {
                 int aframe = Ship->GetFrame();
                 Draw->DrawBitmap(bmpExplosion[aframe], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
-                if (aframe >= 23)GameOver();
+                if (aframe >= 23)game_over=true;
             }
             else if (Ship->dir == dirs::up || Ship->dir == dirs::stop)
                 Draw->DrawBitmap(bmpShipU[Ship->GetFrame()], D2D1::RectF(Ship->x, Ship->y, Ship->ex, Ship->ey));
@@ -1727,15 +1726,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             {
                 int aframe = Station->GetFrame();
                 Draw->DrawBitmap(bmpExplosion[aframe], D2D1::RectF(Station->x, Station->y, Station->ex, Station->ey));
-                if (aframe >= 23)GameOver();
+                if (aframe >= 23)game_over = true;;
             }
         }
 
         ////////////////////////////////////////////////////
 
-
-
         Draw->EndDraw();
+
+        if (game_over)GameOver();
     }
 
 
