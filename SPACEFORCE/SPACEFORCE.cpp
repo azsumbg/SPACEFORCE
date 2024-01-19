@@ -140,14 +140,13 @@ std::vector<obj_ptr> vStars;
 std::vector<obj_ptr> vMeteors;
 std::vector<obj_ptr> vLasers;
 
-
 ///////////////////////////////////////////////
 template<typename COM> void GarbageCollector(COM** object)
 {
     if ((*object))
     {
         (*object)->Release();
-        object = nullptr;
+        (*object) = nullptr;
     }
 }
 void SafeRelease()
@@ -675,6 +674,56 @@ void LevelUp()
         }
     }
 }
+void HallofFame()
+{
+    int result = 0;
+    CheckFile(record_file, &result);
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)MessageBeep(MB_ICONEXCLAMATION);
+        MessageBox(bHwnd, L"Все още няма рекорд на играта !\n\nПостарай се повече !", L"Липсва файл !",
+            MB_OK | MB_APPLMODAL | MB_ICONASTERISK);
+        return;
+    }
+
+    std::wifstream rec(record_file);
+    wchar_t saved_player[16] = L"\0";
+    wchar_t saved_score[5] = L"\0";
+    wchar_t hofstat[100] = L"НАЙ-ДОБЪР ПИЛОТ: ";
+
+    rec >> result;
+    swprintf(saved_score, 5, L"%d", result);
+
+    for (int i = 0; i < 16; ++i)
+    {
+        int aletter = 0;
+        rec >> aletter;
+        saved_player[i] = static_cast<wchar_t>(aletter);
+    }
+    rec.close();
+    
+    wcscat_s(hofstat, saved_player);
+    wcscat_s(hofstat, L"\nсветовен рекорд: ");
+    wcscat_s(hofstat, saved_score);
+
+    result = 0;
+
+    for (int i = 0; i < 100; i++)
+    {
+        if (hofstat[i] != '\0')result++;
+        else break;
+    }
+
+    if (sound)mciSendString(L"play .\\res\\snd\\tada.wav", NULL, NULL, NULL);
+
+    Draw->BeginDraw();
+    Draw->Clear(D2D1::ColorF(D2D1::ColorF::Black));
+    Draw->DrawText(hofstat, result, bigTextFormat, D2D1::RectF(50.0f, cl_height / 2 - 100.0f, cl_width, cl_height), TextBrush);
+    Draw->EndDraw();
+
+    Sleep(3500);
+
+}
 
 ////////////////////////////////////////////////
 
@@ -962,7 +1011,11 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
                 break;
 
 
-
+            case mHoF:
+                pause = true;
+                HallofFame();
+                pause = false;
+                break;
 
             }
             break;
