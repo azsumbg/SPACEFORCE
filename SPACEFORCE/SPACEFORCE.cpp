@@ -822,7 +822,7 @@ void SaveGame()
     }
     
     save.close();
-
+    if (sound)mciSendString(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL);
     MessageBox(bHwnd, L"Играта е запазена !", L"Запис !", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
 
 }
@@ -978,10 +978,65 @@ void LoadGame()
     }
     
     save.close();
-
+    if (sound)mciSendString(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL);
     MessageBox(bHwnd, L"Играта е заредена !", L"Зареждане !", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
 }
+void ShowHelp()
+{
+    int result = 0;
+    CheckFile(help_file, &result);
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)MessageBeep(MB_ICONEXCLAMATION);
+        MessageBox(bHwnd, L"Липсва помощ за играта !\n\nСвържете се с разработчика !", L"Липсва файл !",
+            MB_OK | MB_APPLMODAL | MB_ICONASTERISK);
+        return;
+    }
 
+    std::wifstream help(help_file);
+    help >> result;
+    
+    wchar_t help_text[1000] = L"\0";
+
+    for (int i = 0; i < result; ++i)
+    {
+        int aletter = 0;
+        help >> aletter;
+        help_text[i] = static_cast<wchar_t>(aletter);
+    }
+    help.close();
+
+    Draw->BeginDraw();
+    Draw->Clear(D2D1::ColorF(D2D1::ColorF::BlueViolet));
+    Draw->FillRectangle(D2D1::RectF(0, 0, cl_width, 50.0f), ButBckgBrush);
+    if (name_set)
+        Draw->DrawText(L"Име на пилот", 13, nrmTextFormat, D2D1::RectF(b1Rect.left + 50.0f, 0, b1Rect.right, 50.0f),
+            ButInactiveBrush);
+    else
+    {
+        if (b1Hglt)
+            Draw->DrawText(L"Име на пилот", 13, nrmTextFormat, D2D1::RectF(b1Rect.left + 50.0f, 0, b1Rect.right, 50.0f),
+                ButHgltBrush);
+        else
+            Draw->DrawText(L"Име на пилот", 13, nrmTextFormat, D2D1::RectF(b1Rect.left + 50.0f, 0, b1Rect.right, 50.0f),
+                ButBrush);
+    }
+    if (b2Hglt)
+        Draw->DrawText(L"Звуци ON / OFF", 15, nrmTextFormat, D2D1::RectF(b2Rect.left + 50.0f, 0, b2Rect.right, 50.0f),
+            ButHgltBrush);
+    else
+        Draw->DrawText(L"Звуци ON / OFF", 15, nrmTextFormat, D2D1::RectF(b2Rect.left + 50.0f, 0, b2Rect.right, 50.0f),
+            ButBrush);
+    if (b3Hglt)
+        Draw->DrawText(L"Помощ за играта", 16, nrmTextFormat, D2D1::RectF(b3Rect.left + 30.0f, 0, b3Rect.right, 50.0f),
+            ButHgltBrush);
+    else
+        Draw->DrawText(L"Помощ за играта", 16, nrmTextFormat, D2D1::RectF(b3Rect.left + 30.0f, 0, b3Rect.right, 50.0f),
+            ButBrush);
+    Draw->DrawText(help_text, result, nrmTextFormat, D2D1::RectF(200.0f, 80.0f, cl_width, cl_height), TextBrush);
+    Draw->EndDraw();
+    if (sound)mciSendString(L"play .\\res\\snd\\tada.wav", NULL, NULL, NULL);
+}
 
 ////////////////////////////////////////////////
 
@@ -1229,6 +1284,42 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
                 {
                     if (sound)mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
                     if (DialogBoxW(bIns, MAKEINTRESOURCE(IDD_PLAYER), hwnd, &bDlgProc) == IDOK)name_set = true;
+                    break;
+                }
+            }
+
+            if (LOWORD(lParam) >= b2Rect.left && LOWORD(lParam) <= b2Rect.right
+                && HIWORD(lParam) >= b2Rect.top && HIWORD(lParam) <= b2Rect.bottom)
+            {
+                if (sound)mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
+                if (sound)
+                {
+                    sound = false;
+                    PlaySound(NULL, NULL, NULL);
+                    break;
+                }
+                else
+                {
+                    sound = true;
+                    PlaySound(sound_file, NULL, SND_ASYNC | SND_LOOP);
+                    break;
+                }
+            }
+
+            if (LOWORD(lParam) >= b3Rect.left && LOWORD(lParam) <= b3Rect.right
+                && HIWORD(lParam) >= b3Rect.top && HIWORD(lParam) <= b3Rect.bottom)
+            {
+                if (!show_help)
+                {
+                    show_help = true;
+                    pause = true;
+                    ShowHelp();
+                    break;
+                }
+                else
+                {
+                    show_help = false;
+                    pause = false;
                     break;
                 }
             }
