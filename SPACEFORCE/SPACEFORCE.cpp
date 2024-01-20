@@ -458,6 +458,24 @@ void InitGame()
     neb1 = iPrimeFactory(types::nebula1, (float)(rand() % 600), 80.0f);
     neb2 = iPrimeFactory(types::nebula2, (float)(rand() % 600), 450.0f);
     
+    if (!vMeteors.empty())
+    {
+        for (std::vector<obj_ptr>::iterator it = vMeteors.begin(); it < vMeteors.end(); it++)
+        {
+            (*it)->Release();
+            (*it) = nullptr;
+        }
+    }
+
+    if (!vLasers.empty())
+    {
+        for (std::vector<obj_ptr>::iterator it = vLasers.begin(); it < vLasers.end(); it++)
+        {
+            (*it)->Release();
+            (*it) = nullptr;
+        }
+    }
+
     vStars.clear();
     vMeteors.clear();
     vLasers.clear();
@@ -602,6 +620,24 @@ void LevelUp()
     neb1 = iPrimeFactory(types::nebula1, (float)(rand() % 600), 80.0f);
     neb2 = iPrimeFactory(types::nebula2, (float)(rand() % 600), 450.0f);
 
+    if (!vMeteors.empty())
+    {
+        for (std::vector<obj_ptr>::iterator it = vMeteors.begin(); it < vMeteors.end(); it++)
+        {
+            (*it)->Release();
+            (*it) = nullptr;
+        }
+    }
+
+    if (!vLasers.empty())
+    {
+        for (std::vector<obj_ptr>::iterator it = vLasers.begin(); it < vLasers.end(); it++)
+        {
+            (*it)->Release();
+            (*it) = nullptr;
+        }
+    }
+
     vStars.clear();
     vMeteors.clear();
     vLasers.clear();
@@ -673,6 +709,7 @@ void LevelUp()
             Draw->EndDraw();
         }
     }
+    Sleep(3500);
 }
 void HallofFame()
 {
@@ -724,6 +761,227 @@ void HallofFame()
     Sleep(3500);
 
 }
+void SaveGame()
+{
+    int result = 0;
+    CheckFile(save_file, &result);
+
+    if (result == FILE_EXIST)
+    {
+        if (sound)MessageBeep(MB_ICONQUESTION);
+        if (MessageBox(bHwnd, L"Съществува предишна записана игра,\n\nкоято ще бъде загубена !", L"Презапис ?",
+            MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)return;
+    }
+
+    std::wofstream save(save_file);
+
+    save << score << std::endl;
+    save << seconds << std::endl;
+    save << minutes << std::endl;
+    for (int i = 0; i < 16; i++)save << static_cast<int>(current_player[i]) << std::endl;
+    save << name_set << std::endl;
+    save << game_speed << std::endl;
+    save << laser_upgraded << std::endl;
+    save << spare_life << std::endl;
+    save << game_over << std::endl;
+
+    if (!Ship)save << 0 << std::endl;
+    else
+    {
+        save << Ship->x << std::endl;
+        save << Ship->y << std::endl;
+        save << Ship->lifes << std::endl;
+        save << static_cast<int>(Ship->GetType()) << std::endl;
+    }
+
+    if (!Spare)save << 0 << std::endl;
+    else
+    {
+        save << Spare->x << std::endl;
+        save << Spare->y << std::endl;
+    }
+
+    if (!Station)save << 0 << std::endl;
+    else
+    {
+        save << Station->x << std::endl;
+        save << Station->y << std::endl;
+        save << Station->lifes << std::endl;
+        save << static_cast<int>(Station->GetType()) << std::endl;
+    }
+
+    save << vMeteors.size() << std::endl;
+    if (!vMeteors.empty())
+    {
+        for (int i = 0; i < vMeteors.size(); ++i)
+        {
+            save << vMeteors[i]->x << std::endl;
+            save << vMeteors[i]->y << std::endl;
+            save << static_cast<int>(vMeteors[i]->GetType()) << std::endl;
+        }
+    }
+    
+    save.close();
+
+    MessageBox(bHwnd, L"Играта е запазена !", L"Запис !", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+
+}
+void LoadGame()
+{
+    int result = 0;
+    CheckFile(save_file, &result);
+
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)MessageBeep(MB_ICONEXCLAMATION);
+        MessageBox(bHwnd, L"Все още няма записана игра !\n\nПостарай се повече !", L"Липсва файл !",
+            MB_OK | MB_APPLMODAL | MB_ICONASTERISK);
+        return;
+    }
+    else
+    {
+        if (sound)MessageBeep(MB_ICONQUESTION);
+        if (MessageBox(bHwnd, L"Ако продължиш, настоящата игра,\n\nще бъде загубена !", L"Презапис ?",
+            MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)return;
+    }
+
+    //INIT FIELD *****************
+
+    if (neb1)neb1->Release();
+    if (neb2)neb2->Release();
+    if (Ship)Ship->Release();
+    if (Spare)Spare->Release();
+    if (Station)Station->Release();
+
+    Spare = nullptr;
+    Station = nullptr;
+
+    neb1 = iPrimeFactory(types::nebula1, (float)(rand() % 600), 80.0f);
+    neb2 = iPrimeFactory(types::nebula2, (float)(rand() % 600), 450.0f);
+
+    if (!vMeteors.empty())
+    {
+        for (std::vector<obj_ptr>::iterator it = vMeteors.begin(); it < vMeteors.end(); it++)
+        {
+            (*it)->Release();
+            (*it) = nullptr;
+        }
+    }
+
+    if (!vLasers.empty())
+    {
+        for (std::vector<obj_ptr>::iterator it = vLasers.begin(); it < vLasers.end(); it++)
+        {
+            (*it)->Release();
+            (*it) = nullptr;
+        }
+    }
+
+    vStars.clear();
+    vMeteors.clear();
+    vLasers.clear();
+
+    for (float x_counter = frame_min_width; x_counter < frame_max_width; x_counter += (30.0f + rand() % 60))
+    {
+        for (float y_counter = frame_min_height; y_counter < frame_max_height; y_counter += (30.0f + rand() % 70))
+        {
+            int acase = rand() % 4;
+
+            if (acase == 0)
+                vStars.push_back(iObjectFactory(types::small_star, x_counter, y_counter));
+            else if (acase == 1)
+                vStars.push_back(iObjectFactory(types::big_star, x_counter, y_counter));
+            else continue;
+        }
+    }
+
+    //////////////////////////////
+
+    std::wifstream save(save_file);
+
+    float fresult = 0;
+
+    save >> score;
+    save >> seconds;
+    save >> minutes;
+    for (int i = 0; i < 16; i++)
+    {
+        int aletter = 0;
+        save >> aletter;
+        current_player[i]=static_cast<wchar_t>(aletter);
+    }
+    save >> name_set;
+    save >> game_speed;
+    save >> laser_upgraded;
+    save >> spare_life;
+    save >> game_over;
+
+    save >> fresult;
+
+    if (fresult != 0)
+    {
+        float tempy = 0;
+        int tlifes = 0;
+        int ttype = 0;
+        save >> tempy;
+        save >> tlifes;
+        save >> ttype;
+        Ship = iObjectFactory(types::ship, fresult, tempy);
+        Ship->lifes = tlifes;
+        if (static_cast<types>(ttype) == types::explosion)Ship->SetType(types::explosion);
+    }
+    
+    save >> fresult;
+
+    if (fresult != 0)
+    {
+        float tempy = 0;
+        save >> tempy;
+        Spare = iObjectFactory(types::spare, fresult, tempy);
+    }
+    
+    save >> fresult;
+
+    if (fresult != 0)
+    {
+        float tempy = 0;
+        int tlifes = 0;
+        int ttype = 0;
+        save >> tempy;
+        save >> tlifes;
+        save >> ttype;
+        Station = iObjectFactory(types::station, fresult, tempy);
+        Station->lifes = tlifes;
+        if (static_cast<types>(ttype) == types::explosion)Station->SetType(types::explosion);
+    }
+    
+    save >> result;
+
+    if (result > 0)
+    {
+        for (int i = 0; i < result; ++i)
+        {
+            float tx = 0;
+            float ty = 0;
+            int ttype = 0;
+            
+            save >> tx;
+            save >> ty;
+            save >> ttype;
+            
+            if (static_cast<types>(ttype) != types::explosion)
+                vMeteors.push_back(iObjectFactory(static_cast<types>(ttype), tx, ty));
+            else
+                vMeteors.push_back(iObjectFactory(types::small_asteroid, tx, ty));
+            
+        }
+    }
+    
+    save.close();
+
+    MessageBox(bHwnd, L"Играта е заредена !", L"Зареждане !", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+}
+
 
 ////////////////////////////////////////////////
 
@@ -1010,13 +1268,23 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
                 SendMessage(hwnd, WM_CLOSE, NULL, NULL);
                 break;
 
+            case mSave:
+                pause = true;
+                SaveGame();
+                pause = false;
+                break;
+
+            case mLoad:
+                pause = true;
+                LoadGame();
+                pause = false;
+                break;
 
             case mHoF:
                 pause = true;
                 HallofFame();
                 pause = false;
                 break;
-
             }
             break;
 
@@ -1051,6 +1319,7 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
             case VK_SHIFT:
                 if (Ship)
                 {
+                    if ((Ship)->dir == dirs::stop)break;
                     if (sound)mciSendString(L"play .\\res\\snd\\laser.wav", NULL, NULL, NULL);
                     switch (Ship->dir)
                     {
@@ -1077,6 +1346,8 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
                         else vLasers.push_back(iObjectFactory(types::hstrong_laser, Ship->ex, Ship->y + 50.0f));
                         if (!vLasers.empty())vLasers.back()->dir = dirs::right;
                         break;
+
+                    default:break;
                     }
                 }
             }
@@ -1246,47 +1517,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
           
         }
 
-        if (Station && Ship)
+        if (Station)
         {
-            switch (Station->dir)
-            {
-            case dirs::stop:
-                if (Station->x >= cl_width / 2)Station->dir = dirs::right;
-                else Station->dir = dirs::left;
-                break;
-
-            case dirs::up:
-                if (Station->dir == dirs::up)Station->dir = dirs::down;
-                else if (Station->dir == dirs::down)Station->dir = dirs::up;
-                else if (Station->dir == dirs::left || Station->dir == dirs::up_left ||
-                    Station->dir == dirs::down_left) Station->dir = dirs::down_left;
-                else if (Station->dir == dirs::right || Station->dir == dirs::up_right ||
-                    Station->dir == dirs::down_right) Station->dir = dirs::down_right;
-                break;
-
-            case dirs::down:
-                if (Station->dir == dirs::up)Station->dir = dirs::down;
-                else if (Station->dir == dirs::down)Station->dir = dirs::up;
-                else if (Station->dir == dirs::left || Station->dir == dirs::up_left ||
-                    Station->dir == dirs::down_left) Station->dir = dirs::up_left;
-                else if (Station->dir == dirs::right || Station->dir == dirs::up_right ||
-                    Station->dir == dirs::down_right) Station->dir = dirs::up_right;
-                break;
-
-            case dirs::left:
-                if (Station->dir == dirs::left)Station->dir = dirs::right;
-                else if (Station->dir == dirs::up_left)Station->dir = dirs::down_right;
-                else if (Station->dir == dirs::down_left)Station->dir = dirs::up_right;
-                break;
-
-            case dirs::right:
-                if (Station->dir == dirs::right)Station->dir = dirs::left;
-                else if (Station->dir == dirs::up_right)Station->dir = dirs::down_left;
-                else if (Station->dir == dirs::down_right)Station->dir = dirs::up_left;
-                break;
-
-            }
-
+            Station->dir = objects_dir;
             Station->Move(game_speed);
 
         }
@@ -1347,8 +1580,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         {
             for (std::vector<obj_ptr>::iterator met = vMeteors.begin(); met < vMeteors.end(); met++)
             {
+                if (Ship->GetType() == types::explosion)break;
                 if ((*met)->GetType() == types::explosion)continue;
-
+                
                 if (!((*met)->x >= Ship->ex || (*met)->ex <= Ship->x || (*met)->y >= Ship->ey || (*met)->ey <= Ship->y))
                 {
                     Ship->lifes -= 20;
@@ -1402,25 +1636,29 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     switch (Station->dir)
                     {
                     case dirs::up:
-                        Station->y += 100;
-                        if (Station->y >= cl_height)Station->y = 50.0f;
+                        Station->y += 50;
+                        Station->SetEdges();
+                        if (Station->ey >= cl_height)Station->y = 50.0f;
                         Station->SetEdges();
                         break;
 
                     case dirs::down:
-                        Station->y -= 100;
+                        Station->y -= 50;
+                        Station->SetEdges();
                         if (Station->y <= 50.0f) Station->y = cl_height - 100.0f;
                         Station->SetEdges();
                         break;
 
                     case dirs::left:
-                        Station->x += 100;
-                        if (Station->x >= cl_width)Station->x = cl_width - 100.0f;
+                        Station->x += 50;
+                        Station->SetEdges();
+                        if (Station->ex >= cl_width)Station->x = cl_width - 100.0f;
                         Station->SetEdges();
                         break;
 
                     case dirs::right:
-                        Station->x -= 100;
+                        Station->x -= 50;
+                        Station->SetEdges();
                         if (Station->x < 0)Station->x = 0.0f;
                         Station->SetEdges();
                         break;
