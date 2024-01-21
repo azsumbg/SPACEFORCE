@@ -691,7 +691,7 @@ void LevelUp()
     }
     ///////////////////////////////////////
 
-    if (sound)mciSendString(L"play .\\res\\snd\\levelup", NULL, NULL, NULL);
+    if (sound)mciSendString(L"play .\\res\\snd\\levelup.wav", NULL, NULL, NULL);
 
     if (Draw && bigTextFormat && TextBrush)
     {
@@ -707,6 +707,7 @@ void LevelUp()
             Draw->Clear(D2D1::ColorF(D2D1::ColorF::Black));
             Draw->DrawText(showtxt, i, bigTextFormat, D2D1::RectF(100.0f, cl_height / 2 - 50.0f, cl_width, cl_height), TextBrush);
             Draw->EndDraw();
+            Sleep(40);
         }
     }
     Sleep(3500);
@@ -1151,6 +1152,7 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
         }
         if (minutes >= 3 && !Station)
         {
+            if (sound)mciSendString(L"play .\\res\\snd\\warp.wav", NULL, NULL, NULL);
             Station = iObjectFactory(types::station, static_cast<float>(rand() % 600), 60.0f);
             Station->lifes = 250;
         }
@@ -1462,7 +1464,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     if (result == FILE_EXIST)ErrExit(eStarted);
     
     std::wofstream tmp(Ltmp_file);
-    tmp << L"Игрътъ ръботи бря !" <<std::endl;
+    tmp << L"IgrUta rAboti brya !" << std::endl;
     tmp.close();
 
     if (GetSystemMetrics(SM_CXSCREEN) + 100 < scr_width || GetSystemMetrics(SM_CYSCREEN) + 50 < scr_height)ErrExit(eScreen);
@@ -1494,6 +1496,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         ShowWindow(bHwnd, SW_SHOWDEFAULT);
         Init2D();
     }
+    PlaySound(sound_file, NULL, SND_ASYNC | SND_LOOP);
 
     while (bMsg.message != WM_QUIT)
     {
@@ -1816,7 +1819,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
-        if (vMeteors.size() < 3)
+        if (vMeteors.size() < 3 + game_speed)
         {
             float tx = static_cast<float>(rand() % 800);
             float ty = static_cast<float>(rand() % 400 + 50);
